@@ -4,16 +4,19 @@ import re
 import time
 import io
 from PIL import Image, ImageDraw, ImageFont
+from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 
-# --- الإعدادات الأساسية المعدلة ---
+# --- الإعدادات الأساسية ---
 TOKEN = '8256105127:AAGRs0n6bGNJ74jXttJnh2Se0AnaW8kworQ'
-# إضافة المعرفات المطلوبة في قائمة الأونر
 OWNERS = ['levil_8', 'Q_12_T', 'h896556'] 
 REF_GROUP_ID = -1003875646314      
 
 bot = telebot.TeleBot(TOKEN)
 
-# قائمة الكلانات الأساسية (تسجيل مسبق)
+# قائمة القنوات المتاحة للتنظيم
+CHANNELS = ["@botolaaatt", "@eFOOTBALL24_4_"]
+
+# قائمة الكلانات الأساسية
 PRE_REGISTERED_CLANS = ["JUV", "TIT", "SP", "SHR", "JWA", "TDL", "TK", "STO"]
 
 class Tournament:
@@ -37,15 +40,12 @@ def create_full_tournament_image(matches, refs, stage_name):
     img_height = 250 + (len(matches) * 110)
     img = Image.new('RGB', (800, img_height), color=(10, 10, 10))
     draw = ImageDraw.Draw(img)
-    
     draw.rectangle([10, 10, 790, img_height-10], outline=(212, 175, 55), width=6)
     draw.rectangle([20, 20, 780, img_height-20], outline=(40, 40, 40), width=2)
-    
     try:
         draw.text((400, 70), "THE STRONGEST CLAN", fill=(212, 175, 55), anchor="mm")
         draw.text((400, 120), f"PHASE: {stage_name}", fill=(255, 255, 255), anchor="mm")
         draw.line([250, 145, 550, 145], fill=(212, 175, 55), width=3)
-        
         y_pos = 220
         for i, m in enumerate(matches):
             ref_name = refs.get(i+1, "TBA")
@@ -54,10 +54,8 @@ def create_full_tournament_image(matches, refs, stage_name):
             draw.text((400, y_pos-15), match_txt, fill=(255, 255, 255), anchor="mm")
             draw.text((400, y_pos+20), f"REFEREE: @{ref_name}", fill=(0, 200, 255), anchor="mm")
             y_pos += 110
-            
         draw.text((400, img_height-60), "SYSTEM: 6 VS 6 | DEADLINE: 3 DAYS", fill=(180, 180, 180), anchor="mm")
     except: pass
-    
     img_byte_arr = io.BytesIO()
     img.save(img_byte_arr, format='PNG')
     img_byte_arr.seek(0)
@@ -87,17 +85,23 @@ def get_reg_text(tour):
 تنظيم ⤇⦇ البوت المنظم ⦈
 اشراف⤇⦇ الـلـجـنـة الـعـل -يـا ⦈"""
 
+# --- تعديل استقبال امر بطولة لعرض اختيار القنوات ---
 @bot.message_handler(func=lambda m: m.chat.type == 'private' and "بطوله" in m.text)
-def start_tour(message):
-    global last_active_channel
-    # التحقق من أن المستخدم ضمن قائمة الأونر
+def ask_channel(message):
     if message.from_user.username and message.from_user.username.lower() not in [u.lower() for u in OWNERS]: 
         return
     
-    parts = message.text.split()
-    channel_id = parts[1] if len(parts) > 1 else "@botolaaatt"
-    if not channel_id.startswith('@') and not str(channel_id).startswith('-100'): channel_id = f"@{channel_id}"
+    markup = InlineKeyboardMarkup()
+    for ch in CHANNELS:
+        markup.add(InlineKeyboardButton(ch, callback_data=f"start_{ch}"))
+    
+    bot.reply_to(message, "⚠️ يرجى اختيار القناة التي ترغب في بدء التسجيل بها:", reply_markup=markup)
 
+@bot.callback_query_handler(func=lambda call: call.data.startswith("start_"))
+def process_channel_selection(call):
+    global last_active_channel
+    channel_id = call.data.replace("start_", "")
+    
     tour = Tournament(channel_id)
     active_tournaments[channel_id] = tour
     tour.active, tour.stage = True, 16
@@ -107,9 +111,10 @@ def start_tour(message):
         cover = create_reg_cover()
         msg = bot.send_photo(channel_id, cover, caption=get_reg_text(tour))
         tour.registration_msg_id = msg.message_id
-        bot.reply_to(message, f"✅ تم تفعيل البطولة في {channel_id}\n(تم تسجيل 8 كلانات أساسية تلقائياً)")
+        bot.answer_callback_query(call.id, f"تم التفعيل في {channel_id}")
+        bot.edit_message_text(f"✅ تم تفعيل البطولة بنجاح في {channel_id}", call.message.chat.id, call.message.message_id)
     except Exception as e:
-        bot.reply_to(message, f"❌ فشل الإرسال: {e}")
+        bot.send_message(call.message.chat.id, f"❌ فشل الإرسال للقناة {channel_id}: {e}")
 
 @bot.message_handler(func=lambda m: last_active_channel is not None and len(active_tournaments[last_active_channel].clans) < 16)
 def register(message):
@@ -156,12 +161,10 @@ def pick_match(message):
 def post_final_draw(tour):
     list_time = 14 if tour.stage in [16, 8] else 18
     stage_name = "FINAL" if tour.stage == 2 else f"دور الـ {tour.stage}"
-    
     match_blocks = ""
     for i, m in enumerate(tour.matches):
         ref = tour.ref_assignments.get(i+1, "TBA")
         match_blocks += f"{i+1} ➸ {m[0]} 🆚 {m[1]}\nالحكم ➜ @{ref} ⚐ .\n━─── ••◦⊱≼≽⊰◦•• ───━\n"
-
     combined_msg = f"""- اسعد الله اوقاتكم بكل خير اينما كُنتم مُتابعين قنوات الاتحاد العربي للكلانات .
 ━─── ••◦⊱≼≽⊰◦•• ───━
 الـيـكـم قـرعة {stage_name} مـن بـطـولـه :
@@ -169,12 +172,10 @@ def post_final_draw(tour):
 ━─── ••◦⊱≼≽⊰◦•• ───━
 {match_blocks}
                ⦕   الـقـوانـيـن  ⦖
-
 ➀ ➝ المواجهات ❻ VS ❻.
 ➁ ➝ أخر وقت لقوائم بعد {list_time} ساعة .
 ➂ ➝ تراسل الحكم مو تنتظرة يراسلك
 ➃ ➝ وقت المواجهة يومين ⌛️."""
-
     full_img = create_full_tournament_image(tour.matches, tour.ref_assignments, stage_name)
     msg = bot.send_photo(tour.channel_id, full_img, caption=combined_msg)
     tour.draw_msg_id = msg.message_id 
@@ -183,12 +184,9 @@ def post_final_draw(tour):
 def handle_win(message):
     match_name = re.search(r"([A-Z0-9]{2,8})", message.text.upper().replace("WIN", "").strip())
     match_link = re.search(r"/(\d+)$", message.text.strip())
-    
     if not match_name or not match_link: return
-    
     win_name = match_name.group(1)
     msg_id_from_link = int(match_link.group(1))
-
     for tour in active_tournaments.values():
         if tour.active and (tour.draw_msg_id == msg_id_from_link):
             for i, m in enumerate(tour.matches):
@@ -196,14 +194,11 @@ def handle_win(message):
                     if win_name not in tour.winners:
                         loser_name = m[0] if m[1].upper() == win_name else m[1]
                         tour.winners.append(win_name)
-                        
                         channel_clean = str(tour.channel_id).replace('@', '')
                         post_link = f"https://t.me/{channel_clean}/{tour.registration_msg_id}"
-                        
                         final_msg = f"🏆 فوز كلان ⦉ {win_name} ⦊ على كلان ⦉ {loser_name} ⦊ وتأهله للدور القادم.\n\n🔗 رابط البطولة: {post_link}"
                         bot.send_message(tour.channel_id, final_msg)
                         bot.reply_to(message, f"✅ تم تسجيل فوز {win_name} في بطولة {tour.channel_id}")
-                        
                         if len(tour.winners) == len(tour.matches): advance(tour)
                         return
 
@@ -214,5 +209,5 @@ def advance(tour):
     bot.send_message(REF_GROUP_ID, f"🔄 تأهل الكلانات لدور {tour.stage} في {tour.channel_id}. جاري توليد القرعة...")
     start_draw_phase(tour)
 
-print("🚀 البوت يعمل الآن بنظام الملاك المتعددين والنتائج المرنة...")
+print("🚀 البوت يعمل الآن بنظام اختيار القنوات والملاك المتعددين...")
 bot.polling(none_stop=True)

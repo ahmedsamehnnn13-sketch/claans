@@ -20,7 +20,6 @@ class Tournament:
         self.channel_id = channel_id
         self.active = False
         self.stage = 16
-        # تبدأ القائمة بالكلانات المسجلة مسبقاً
         self.clans = list(PRE_REGISTERED_CLANS)
         self.matches = []
         self.ref_assignments = {} 
@@ -30,6 +29,7 @@ class Tournament:
         self.klisha_sent = False
 
 active_tournaments = {}
+last_active_channel = None # لمتابعة القناة التي يتم التسجيل لها حالياً
 
 # --- دالة توليد صورة مجمعة احترافية ---
 def create_full_tournament_image(matches, refs, stage_name):
@@ -37,12 +37,10 @@ def create_full_tournament_image(matches, refs, stage_name):
     img = Image.new('RGB', (800, img_height), color=(10, 10, 10))
     draw = ImageDraw.Draw(img)
     
-    # إطارات رياضية ذهبية
     draw.rectangle([10, 10, 790, img_height-10], outline=(212, 175, 55), width=6)
     draw.rectangle([20, 20, 780, img_height-20], outline=(40, 40, 40), width=2)
     
     try:
-        # العنوان العلوي
         draw.text((400, 70), "THE STRONGEST CLAN", fill=(212, 175, 55), anchor="mm")
         draw.text((400, 120), f"PHASE: {stage_name}", fill=(255, 255, 255), anchor="mm")
         draw.line([250, 145, 550, 145], fill=(212, 175, 55), width=3)
@@ -50,15 +48,12 @@ def create_full_tournament_image(matches, refs, stage_name):
         y_pos = 220
         for i, m in enumerate(matches):
             ref_name = refs.get(i+1, "TBA")
-            # رسم كارت لكل مواجهة
             draw.rectangle([60, y_pos-45, 740, y_pos+45], fill=(20, 20, 20), outline=(60, 60, 60), width=1)
-            
             match_txt = f"{m[0]}   VS   {m[1]}"
             draw.text((400, y_pos-15), match_txt, fill=(255, 255, 255), anchor="mm")
             draw.text((400, y_pos+20), f"REFEREE: @{ref_name}", fill=(0, 200, 255), anchor="mm")
             y_pos += 110
             
-        # تذييل الصورة بالقوانين
         draw.text((400, img_height-60), "SYSTEM: 6 VS 6 | DEADLINE: 3 DAYS", fill=(180, 180, 180), anchor="mm")
     except: pass
     
@@ -89,10 +84,11 @@ def get_reg_text(tour):
 الـيـكـم بطوله ⦉ THE STRONGEST CLAN ⦊
 {list_txt}
 تنظيم ⤇⦇ البوت المنظم ⦈
-اشراف⤇⦇ الـلـجـنـة الـعـلـيـا ⦈"""
+اشراف⤇⦇ الـلـجـنـة الـعـل -يـا ⦈"""
 
 @bot.message_handler(func=lambda m: m.chat.type == 'private' and "بطوله" in m.text)
 def start_tour(message):
+    global last_active_channel
     if message.from_user.username and message.from_user.username.lower() != OWNER_USERNAME.lower(): return
     parts = message.text.split()
     channel_id = parts[1] if len(parts) > 1 else "@botolaaatt"
@@ -101,6 +97,7 @@ def start_tour(message):
     tour = Tournament(channel_id)
     active_tournaments[channel_id] = tour
     tour.active, tour.stage = True, 16
+    last_active_channel = channel_id # تحديد هذه القناة كوجهة للتسجيل حالياً
     
     try:
         cover = create_reg_cover()
@@ -110,19 +107,25 @@ def start_tour(message):
     except Exception as e:
         bot.reply_to(message, f"❌ فشل الإرسال: {e}")
 
-@bot.message_handler(func=lambda m: any(t.active and t.stage == 16 for t in active_tournaments.values()))
+# --- تعديل دالة التسجيل لتعمل في الخاص أو المجموعات ---
+@bot.message_handler(func=lambda m: last_active_channel is not None and len(active_tournaments[last_active_channel].clans) < 16)
 def register(message):
-    current_chat = f"@{message.chat.username}" if message.chat.username else str(message.chat.id)
-    tour = active_tournaments.get(current_chat)
-    if not tour or len(tour.clans) >= 16 or message.text.startswith('/'): return
+    global last_active_channel
+    tour = active_tournaments.get(last_active_channel)
+    
+    if not tour or not tour.active or tour.stage != 16 or message.text.startswith('/'): return
     
     name = message.text.strip().upper()
-    # التحقق من أن الاسم صالح وغير مكرر
+    # التحقق من شروط اسم الكلان (حروف وأرقام من 2 لـ 8)
     if re.match(r"^[A-Z0-9]{2,8}$", name) and name not in tour.clans:
         tour.clans.append(name)
-        try: bot.edit_message_caption(get_reg_text(tour), tour.channel_id, tour.registration_msg_id)
+        try: 
+            bot.edit_message_caption(get_reg_text(tour), tour.channel_id, tour.registration_msg_id)
+            bot.reply_to(message, f"✅ تم تسجيل كلان {name} بنجاح في القائمة.")
         except: pass
-        if len(tour.clans) == 16: start_draw_phase(tour)
+        
+        if len(tour.clans) == 16: 
+            start_draw_phase(tour)
 
 def start_draw_phase(tour):
     random.shuffle(tour.clans)
@@ -191,5 +194,5 @@ def advance(tour):
     bot.send_message(REF_GROUP_ID, f"🔄 تأهل الكلانات لدور {tour.stage} في {tour.channel_id}. جاري توليد القرعة...")
     start_draw_phase(tour)
 
-print("🚀 البوت يعمل الآن بنظام التسجيل المسبق والقرعة المجمعة...")
+print("🚀 البوت يعمل الآن... التسجيل متاح في الخاص للبوت.")
 bot.polling(none_stop=True)

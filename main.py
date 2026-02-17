@@ -6,7 +6,7 @@ import io
 from PIL import Image, ImageDraw, ImageFont
 
 # --- الإعدادات الأساسية المعدلة ---
-TOKEN = '8113358654:AAF6crTuiDikhfQz56twot-1vGs7exwdaTQ'
+TOKEN = '8256105127:AAGRs0n6bGNJ74jXttJnh2Se0AnaW8kworQ'
 OWNER_USERNAME = 'levil_8'
 TOURNAMENT_CHANNEL = "@botolaaatt" 
 REF_GROUP_ID = -1003875646314      

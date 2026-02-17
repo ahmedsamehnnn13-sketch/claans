@@ -1,4 +1,4 @@
-Import telebot
+import telebot
 import random
 import re
 import time

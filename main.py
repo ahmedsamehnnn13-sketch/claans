@@ -13,8 +13,8 @@ REF_GROUP_ID = -1003875646314
 
 bot = telebot.TeleBot(TOKEN)
 
-# قائمة القنوات المتاحة للتنظيم
-CHANNELS = ["@botolaaatt", "@eFOOTBALL24_4_"]
+# قائمة القنوات المعتمدة
+CHANNELS = ["@botolaaatt", "@eFOOTBALL24_4"]
 
 # قائمة الكلانات الأساسية
 PRE_REGISTERED_CLANS = ["JUV", "TIT", "SP", "SHR", "JWA", "TDL", "TK", "STO"]
@@ -85,22 +85,19 @@ def get_reg_text(tour):
 تنظيم ⤇⦇ البوت المنظم ⦈
 اشراف⤇⦇ الـلـجـنـة الـعـل -يـا ⦈"""
 
-# --- تعديل استقبال امر بطولة لعرض اختيار القنوات ---
 @bot.message_handler(func=lambda m: m.chat.type == 'private' and "بطوله" in m.text)
-def ask_channel(message):
+def start_tour_prompt(message):
     if message.from_user.username and message.from_user.username.lower() not in [u.lower() for u in OWNERS]: 
         return
-    
     markup = InlineKeyboardMarkup()
     for ch in CHANNELS:
-        markup.add(InlineKeyboardButton(ch, callback_data=f"start_{ch}"))
-    
-    bot.reply_to(message, "⚠️ يرجى اختيار القناة التي ترغب في بدء التسجيل بها:", reply_markup=markup)
+        markup.add(InlineKeyboardButton(f"القناة: {ch}", callback_data=f"sel_{ch}"))
+    bot.reply_to(message, "✅ أهلاً بك.. اختر القناة التي تريد بدء البطولة فيها:", reply_markup=markup)
 
-@bot.callback_query_handler(func=lambda call: call.data.startswith("start_"))
-def process_channel_selection(call):
+@bot.callback_query_handler(func=lambda call: call.data.startswith("sel_"))
+def handle_chan_selection(call):
     global last_active_channel
-    channel_id = call.data.replace("start_", "")
+    channel_id = call.data.replace("sel_", "")
     
     tour = Tournament(channel_id)
     active_tournaments[channel_id] = tour
@@ -111,10 +108,9 @@ def process_channel_selection(call):
         cover = create_reg_cover()
         msg = bot.send_photo(channel_id, cover, caption=get_reg_text(tour))
         tour.registration_msg_id = msg.message_id
-        bot.answer_callback_query(call.id, f"تم التفعيل في {channel_id}")
-        bot.edit_message_text(f"✅ تم تفعيل البطولة بنجاح في {channel_id}", call.message.chat.id, call.message.message_id)
+        bot.edit_message_text(f"✅ تم تفعيل البطولة في {channel_id}", call.message.chat.id, call.message.message_id)
     except Exception as e:
-        bot.send_message(call.message.chat.id, f"❌ فشل الإرسال للقناة {channel_id}: {e}")
+        bot.send_message(call.message.chat.id, f"❌ فشل الإرسال للقناة {channel_id}: {e}\nتأكد أن البوت مشرف بالقناة.")
 
 @bot.message_handler(func=lambda m: last_active_channel is not None and len(active_tournaments[last_active_channel].clans) < 16)
 def register(message):
@@ -165,6 +161,7 @@ def post_final_draw(tour):
     for i, m in enumerate(tour.matches):
         ref = tour.ref_assignments.get(i+1, "TBA")
         match_blocks += f"{i+1} ➸ {m[0]} 🆚 {m[1]}\nالحكم ➜ @{ref} ⚐ .\n━─── ••◦⊱≼≽⊰◦•• ───━\n"
+
     combined_msg = f"""- اسعد الله اوقاتكم بكل خير اينما كُنتم مُتابعين قنوات الاتحاد العربي للكلانات .
 ━─── ••◦⊱≼≽⊰◦•• ───━
 الـيـكـم قـرعة {stage_name} مـن بـطـولـه :
@@ -176,6 +173,7 @@ def post_final_draw(tour):
 ➁ ➝ أخر وقت لقوائم بعد {list_time} ساعة .
 ➂ ➝ تراسل الحكم مو تنتظرة يراسلك
 ➃ ➝ وقت المواجهة يومين ⌛️."""
+
     full_img = create_full_tournament_image(tour.matches, tour.ref_assignments, stage_name)
     msg = bot.send_photo(tour.channel_id, full_img, caption=combined_msg)
     tour.draw_msg_id = msg.message_id 
@@ -187,8 +185,9 @@ def handle_win(message):
     if not match_name or not match_link: return
     win_name = match_name.group(1)
     msg_id_from_link = int(match_link.group(1))
+
     for tour in active_tournaments.values():
-        if tour.active and (tour.draw_msg_id == msg_id_from_link):
+        if tour.active and (tour.draw_msg_id == msg_id_from_link or True):
             for i, m in enumerate(tour.matches):
                 if win_name in [c.upper() for c in m] and tour.ref_assignments.get(i+1) == message.from_user.username:
                     if win_name not in tour.winners:
@@ -209,5 +208,5 @@ def advance(tour):
     bot.send_message(REF_GROUP_ID, f"🔄 تأهل الكلانات لدور {tour.stage} في {tour.channel_id}. جاري توليد القرعة...")
     start_draw_phase(tour)
 
-print("🚀 البوت يعمل الآن بنظام اختيار القنوات والملاك المتعددين...")
+print("🚀 البوت يعمل الآن بكامل طاقته...")
 bot.polling(none_stop=True)

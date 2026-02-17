@@ -8,17 +8,20 @@ from PIL import Image, ImageDraw, ImageFont
 # --- الإعدادات الأساسية ---
 TOKEN = '8256105127:AAGRs0n6bGNJ74jXttJnh2Se0AnaW8kworQ'
 OWNER_USERNAME = 'levil_8'
-# تم الاستغناء عن PHOTO_URL الخارجي لتجنب أخطاء الـ Bad Request
 REF_GROUP_ID = -1003875646314      
 
 bot = telebot.TeleBot(TOKEN)
+
+# قائمة الكلانات الأساسية (تسجيل مسبق)
+PRE_REGISTERED_CLANS = ["JUV", "TIT", "SP", "SHR", "JWA", "TDL", "TK", "STO"]
 
 class Tournament:
     def __init__(self, channel_id):
         self.channel_id = channel_id
         self.active = False
         self.stage = 16
-        self.clans = []
+        # تبدأ القائمة بالكلانات المسجلة مسبقاً
+        self.clans = list(PRE_REGISTERED_CLANS)
         self.matches = []
         self.ref_assignments = {} 
         self.winners = []
@@ -28,32 +31,35 @@ class Tournament:
 
 active_tournaments = {}
 
-# --- دالة توليد صورة مجمعة لكل المواجهات ---
+# --- دالة توليد صورة مجمعة احترافية ---
 def create_full_tournament_image(matches, refs, stage_name):
-    # حساب الطول بناءً على عدد المباريات
-    img_height = 200 + (len(matches) * 100)
-    img = Image.new('RGB', (800, img_height), color=(15, 15, 15))
+    img_height = 250 + (len(matches) * 110)
+    img = Image.new('RGB', (800, img_height), color=(10, 10, 10))
     draw = ImageDraw.Draw(img)
     
-    # إطارات ذهبية
-    draw.rectangle([10, 10, 790, img_height-10], outline=(212, 175, 55), width=5)
+    # إطارات رياضية ذهبية
+    draw.rectangle([10, 10, 790, img_height-10], outline=(212, 175, 55), width=6)
+    draw.rectangle([20, 20, 780, img_height-20], outline=(40, 40, 40), width=2)
     
     try:
-        # العنوان
-        draw.text((400, 60), f"TOURNAMENT: {stage_name}", fill=(255, 255, 255), anchor="mm")
-        draw.line([200, 90, 600, 90], fill=(212, 175, 55), width=2)
+        # العنوان العلوي
+        draw.text((400, 70), "THE STRONGEST CLAN", fill=(212, 175, 55), anchor="mm")
+        draw.text((400, 120), f"PHASE: {stage_name}", fill=(255, 255, 255), anchor="mm")
+        draw.line([250, 145, 550, 145], fill=(212, 175, 55), width=3)
         
-        y_pos = 160
+        y_pos = 220
         for i, m in enumerate(matches):
             ref_name = refs.get(i+1, "TBA")
-            # رسم مستطيل خفيف للمواجهة
-            draw.rectangle([50, y_pos-40, 750, y_pos+40], outline=(50, 50, 50), width=1)
-            match_txt = f"{m[0]}   VS   {m[1]}"
-            draw.text((400, y_pos-10), match_txt, fill=(255, 255, 255), anchor="mm")
-            draw.text((400, y_pos+20), f"REF: @{ref_name}", fill=(0, 200, 255), anchor="mm")
-            y_pos += 100
+            # رسم كارت لكل مواجهة
+            draw.rectangle([60, y_pos-45, 740, y_pos+45], fill=(20, 20, 20), outline=(60, 60, 60), width=1)
             
-        draw.text((400, img_height-50), "SYSTEM: 6 VS 6 | TIME: 3 DAYS", fill=(150, 150, 150), anchor="mm")
+            match_txt = f"{m[0]}   VS   {m[1]}"
+            draw.text((400, y_pos-15), match_txt, fill=(255, 255, 255), anchor="mm")
+            draw.text((400, y_pos+20), f"REFEREE: @{ref_name}", fill=(0, 200, 255), anchor="mm")
+            y_pos += 110
+            
+        # تذييل الصورة بالقوانين
+        draw.text((400, img_height-60), "SYSTEM: 6 VS 6 | DEADLINE: 3 DAYS", fill=(180, 180, 180), anchor="mm")
     except: pass
     
     img_byte_arr = io.BytesIO()
@@ -61,12 +67,12 @@ def create_full_tournament_image(matches, refs, stage_name):
     img_byte_arr.seek(0)
     return img_byte_arr
 
-# دالة إنشاء صورة غلاف التسجيل (بديلة للرابط المتعطل)
 def create_reg_cover():
-    img = Image.new('RGB', (800, 400), color=(20, 20, 20))
+    img = Image.new('RGB', (800, 400), color=(15, 15, 15))
     draw = ImageDraw.Draw(img)
-    draw.rectangle([0, 0, 800, 400], outline=(212, 175, 55), width=10)
-    draw.text((400, 200), "THE STRONGEST CLAN\nREGISTRATION START", fill=(255, 255, 255), anchor="mm", align="center")
+    draw.rectangle([0, 0, 800, 400], outline=(212, 175, 55), width=12)
+    draw.text((400, 180), "THE STRONGEST CLAN\nTOURNAMENT REGISTRATION", fill=(255, 255, 255), anchor="mm", align="center")
+    draw.text((400, 280), f"PRE-REGISTERED: {len(PRE_REGISTERED_CLANS)} | SLOTS LEFT: {16-len(PRE_REGISTERED_CLANS)}", fill=(212, 175, 55), anchor="mm")
     img_byte_arr = io.BytesIO()
     img.save(img_byte_arr, format='PNG')
     img_byte_arr.seek(0)
@@ -100,9 +106,9 @@ def start_tour(message):
         cover = create_reg_cover()
         msg = bot.send_photo(channel_id, cover, caption=get_reg_text(tour))
         tour.registration_msg_id = msg.message_id
-        bot.reply_to(message, f"✅ تم تفعيل البطولة في {channel_id}")
+        bot.reply_to(message, f"✅ تم تفعيل البطولة في {channel_id}\n(تم تسجيل 8 كلانات أساسية تلقائياً)")
     except Exception as e:
-        bot.reply_to(message, f"❌ فشل الإرسال للقناة {channel_id}: {e}")
+        bot.reply_to(message, f"❌ فشل الإرسال: {e}")
 
 @bot.message_handler(func=lambda m: any(t.active and t.stage == 16 for t in active_tournaments.values()))
 def register(message):
@@ -111,6 +117,7 @@ def register(message):
     if not tour or len(tour.clans) >= 16 or message.text.startswith('/'): return
     
     name = message.text.strip().upper()
+    # التحقق من أن الاسم صالح وغير مكرر
     if re.match(r"^[A-Z0-9]{2,8}$", name) and name not in tour.clans:
         tour.clans.append(name)
         try: bot.edit_message_caption(get_reg_text(tour), tour.channel_id, tour.registration_msg_id)
@@ -121,7 +128,7 @@ def start_draw_phase(tour):
     random.shuffle(tour.clans)
     tour.matches = [[tour.clans[i], tour.clans[i+1]] for i in range(0, 16, 2)]
     stage_name = "FINAL" if tour.stage == 2 else f"ROUND OF {tour.stage}"
-    bot.send_message(REF_GROUP_ID, f"📊 **قرعة {stage_name} للقناة {tour.channel_id}**\nحجز بالرد على الرقم:")
+    bot.send_message(REF_GROUP_ID, f"📊 **قرعة {stage_name} للقناة {tour.channel_id}**\nيرجى حجز المواجهات بالرد على الرقم:")
     send_ref_list(tour)
 
 def send_ref_list(tour):
@@ -146,16 +153,14 @@ def pick_match(message):
     except: pass
 
 def post_final_draw(tour):
-    # إنشاء الصورة المجمعة
     stage_name = "GRAND FINAL" if tour.stage == 2 else f"ROUND OF {tour.stage}"
     full_img = create_full_tournament_image(tour.matches, tour.ref_assignments, stage_name)
     
-    # الكليشة المجمعة
     combined_msg = f"═══════༺⚔༻═══════\n✦ قرعة دور {tour.stage} مجمعة\n═══════༺⚔༻═══════\n"
     for i, m in enumerate(tour.matches):
         combined_msg += f"● {m[0]} 🆚 {m[1]} ➟ @{tour.ref_assignments.get(i+1)}\n"
     
-    combined_msg += f"\n• الـنـظـام: 6 𝘃𝘀 6\n• الـمـدة: 3 أيام\n• الـتـنـظـيـم: الـبـوت الـمـنـظـم ※\n✧━═☆═━━━━━★━━━━━═☆═━✧"
+    combined_msg += f"\n• الـنـظـام: 6 𝘃𝘀 6\n• الـقـوانـيـن: مـمـنـوع الـغـدر | الـتـزام بالـوقت\n• الـمـدة: 3 أيام\n• الـتـنـظـيـم: الـبـوت الـمـنـظـم ※\n✧━═☆═━━━━━★━━━━━═☆═━✧"
     
     bot.send_photo(tour.channel_id, full_img, caption=combined_msg)
 
@@ -183,8 +188,8 @@ def advance(tour):
     tour.clans = list(tour.winners)
     tour.stage = len(tour.clans)
     tour.winners, tour.ref_assignments, tour.klisha_sent = [], {}, False
-    bot.send_message(REF_GROUP_ID, f"🔄 تأهل الكلانات لدور {tour.stage} في {tour.channel_id}...")
+    bot.send_message(REF_GROUP_ID, f"🔄 تأهل الكلانات لدور {tour.stage} في {tour.channel_id}. جاري توليد القرعة...")
     start_draw_phase(tour)
 
-print("🚀 البوت المطور يعمل الآن...")
+print("🚀 البوت يعمل الآن بنظام التسجيل المسبق والقرعة المجمعة...")
 bot.polling(none_stop=True)

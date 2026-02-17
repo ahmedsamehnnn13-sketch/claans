@@ -10,6 +10,7 @@ from telebot.types import InlineKeyboardMarkup, InlineKeyboardButton
 TOKEN = '8256105127:AAGRs0n6bGNJ74jXttJnh2Se0AnaW8kworQ'
 OWNERS = ['levil_8', 'Q_12_T', 'h896556'] 
 REF_GROUP_ID = -1003875646314      
+DISCUSSION_CHAT = "@C7R7L" # مجموعة مناقشة القناة الثانية
 
 bot = telebot.TeleBot(TOKEN)
 
@@ -117,6 +118,22 @@ def register(message):
     global last_active_channel
     tour = active_tournaments.get(last_active_channel)
     if not tour or not tour.active or tour.stage != 16 or message.text.startswith('/'): return
+    
+    # التحقق من مكان التسجيل:
+    # 1. إذا كانت القناة @eFOOTBALL24_4، يجب أن يكون الرد في مجموعة المناقشة أو القناة نفسها
+    # 2. إذا كانت القناة @botolaaatt، التسجيل من القناة أو الخاص الموجه منها
+    
+    is_valid_chat = False
+    if tour.channel_id == "@eFOOTBALL24_4":
+        # يقبل من مجموعة المناقشة بالرد أو من القناة نفسها
+        if str(message.chat.username).lower() == DISCUSSION_CHAT.replace("@","").lower() or message.chat.username == "eFOOTBALL24_4":
+            is_valid_chat = True
+    else:
+        # القناة القديمة أو الخاص
+        is_valid_chat = True
+
+    if not is_valid_chat: return
+
     name = message.text.strip().upper()
     if re.match(r"^[A-Z0-9]{2,8}$", name) and name not in tour.clans:
         tour.clans.append(name)
@@ -208,5 +225,5 @@ def advance(tour):
     bot.send_message(REF_GROUP_ID, f"🔄 تأهل الكلانات لدور {tour.stage} في {tour.channel_id}. جاري توليد القرعة...")
     start_draw_phase(tour)
 
-print("🚀 البوت يعمل الآن بكامل طاقته...")
+print("🚀 البوت يعمل الآن بكامل طاقته... يدعم التسجيل من المناقشة للمعرف المذكور.")
 bot.polling(none_stop=True)

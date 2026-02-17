@@ -17,7 +17,16 @@ bot = telebot.TeleBot(TOKEN)
 # قائمة القنوات المعتمدة
 CHANNELS = ["@botolaaatt", "@eFOOTBALL24_4"]
 
-# قائمة الكلانات الأساسية
+# قائمة الكلانات المسموح لها بالتسجيل فقط
+ALLOWED_CLANS = [
+    "ACM", "STO", "SAY", "BAR", "C4", "RK", "NXN", "GOT", "FR", "ELT", 
+    "TDL", "TM", "MRP", "ET", "BIT", "NSR", "BZL", "TNT", "SP", "RHA", 
+    "TIT", "SHR", "BVB", "CHG", "EG", "ARS", "QAS", "CR7", "PUN", "ASM", 
+    "FN4", "FN", "FN⁴", "BS", "ITA", "DAN", "MZ", "JWA", "ALH", "POR", 
+    "WOL", "USA", "JUV", "END", "DMR", "FE", "XIQ", "MR", "LER", "AVL"
+]
+
+# قائمة الكلانات الأساسية (تسجيل تلقائي عند البدء)
 PRE_REGISTERED_CLANS = ["JUV", "TIT", "SP", "SHR", "JWA", "TDL", "TK", "STO"]
 
 class Tournament:
@@ -119,23 +128,22 @@ def register(message):
     tour = active_tournaments.get(last_active_channel)
     if not tour or not tour.active or tour.stage != 16 or message.text.startswith('/'): return
     
-    # التحقق من مكان التسجيل:
-    # 1. إذا كانت القناة @eFOOTBALL24_4، يجب أن يكون الرد في مجموعة المناقشة أو القناة نفسها
-    # 2. إذا كانت القناة @botolaaatt، التسجيل من القناة أو الخاص الموجه منها
-    
+    # تحديد إذا كان الشات مسموحاً له بالتسجيل
     is_valid_chat = False
     if tour.channel_id == "@eFOOTBALL24_4":
-        # يقبل من مجموعة المناقشة بالرد أو من القناة نفسها
+        # القناة أو مجموعة المناقشة
         if str(message.chat.username).lower() == DISCUSSION_CHAT.replace("@","").lower() or message.chat.username == "eFOOTBALL24_4":
             is_valid_chat = True
     else:
-        # القناة القديمة أو الخاص
+        # القناة الأخرى أو الخاص
         is_valid_chat = True
 
     if not is_valid_chat: return
 
     name = message.text.strip().upper()
-    if re.match(r"^[A-Z0-9]{2,8}$", name) and name not in tour.clans:
+    
+    # شرط: يجب أن يكون الاسم في قائمة الكلانات المسموحة فقط
+    if name in [c.upper() for c in ALLOWED_CLANS] and name not in tour.clans:
         tour.clans.append(name)
         try: 
             bot.edit_message_caption(get_reg_text(tour), tour.channel_id, tour.registration_msg_id)
@@ -225,5 +233,5 @@ def advance(tour):
     bot.send_message(REF_GROUP_ID, f"🔄 تأهل الكلانات لدور {tour.stage} في {tour.channel_id}. جاري توليد القرعة...")
     start_draw_phase(tour)
 
-print("🚀 البوت يعمل الآن بكامل طاقته... يدعم التسجيل من المناقشة للمعرف المذكور.")
+print("🚀 البوت يعمل الآن بنظام الكلانات المسموحة والمناقشة المربوطة...")
 bot.polling(none_stop=True)

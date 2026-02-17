@@ -150,11 +150,9 @@ def pick_match(message):
     except: pass
 
 def post_final_draw(tour):
-    # تحديد وقت القوائم بناءً على الدور
     list_time = 14 if tour.stage in [16, 8] else 18
     stage_name = "FINAL" if tour.stage == 2 else f"دور الـ {tour.stage}"
     
-    # بناء نص المواجهات بالكليشة الجديدة
     match_blocks = ""
     for i, m in enumerate(tour.matches):
         ref = tour.ref_assignments.get(i+1, "TBA")
@@ -174,32 +172,47 @@ def post_final_draw(tour):
 ➃ ➝ وقت المواجهة يومين ⌛️."""
 
     full_img = create_full_tournament_image(tour.matches, tour.ref_assignments, stage_name)
-    bot.send_photo(tour.channel_id, full_img, caption=combined_msg)
+    msg = bot.send_photo(tour.channel_id, full_img, caption=combined_msg)
+    tour.draw_msg_id = msg.message_id # تخزين معرف رسالة القرعة للتحقق من النتائج
 
 @bot.message_handler(func=lambda m: m.chat.type == 'private' and "WIN" in m.text.upper())
 def handle_win(message):
-    winner_match = re.search(r"([A-Z0-9]{2,8})", message.text.upper().replace("WIN", "").strip())
-    if not winner_match: return
-    win_name = winner_match.group(1)
+    # استخراج اسم الكلان (كلمة مكونة من حروف وأرقام بعد أو قبل كلمة WIN)
+    match_name = re.search(r"([A-Z0-9]{2,8})", message.text.upper().replace("WIN", "").strip())
+    # استخراج معرف الرسالة من الرابط الموجود في النص
+    match_link = re.search(r"/(\d+)$", message.text.strip())
+    
+    if not match_name or not match_link: return
+    
+    win_name = match_name.group(1)
+    msg_id_from_link = int(match_link.group(1))
+
     for tour in active_tournaments.values():
-        for i, m in enumerate(tour.matches):
-            if win_name in [c.upper() for c in m] and tour.ref_assignments.get(i+1) == message.from_user.username:
-                if win_name not in tour.winners:
-                    loser_name = m[0] if m[1].upper() == win_name else m[1]
-                    tour.winners.append(win_name)
-                    channel_clean = str(tour.channel_id).replace('@', '')
-                    post_link = f"https://t.me/{channel_clean}/{tour.registration_msg_id}"
-                    final_msg = f"🏆 فوز كلان ⦉ {win_name} ⦊ على كلان ⦉ {loser_name} ⦊ وتأهله للدور القادم.\n\n🔗 رابط البطولة: {post_link}"
-                    bot.send_message(tour.channel_id, final_msg)
-                    if len(tour.winners) == len(tour.matches): advance(tour)
-                    return
+        # التأكد أن النتيجة مرسلة لبطولة نشطة وبناءً على رابط قرعة صحيح
+        if tour.active and (tour.draw_msg_id == msg_id_from_link):
+            for i, m in enumerate(tour.matches):
+                # التحقق أن الكلان الفائز موجود في المواجهة وأن المرسل هو الحكم المحجوز له
+                if win_name in [c.upper() for c in m] and tour.ref_assignments.get(i+1) == message.from_user.username:
+                    if win_name not in tour.winners:
+                        loser_name = m[0] if m[1].upper() == win_name else m[1]
+                        tour.winners.append(win_name)
+                        
+                        channel_clean = str(tour.channel_id).replace('@', '')
+                        post_link = f"https://t.me/{channel_clean}/{tour.registration_msg_id}"
+                        
+                        final_msg = f"🏆 فوز كلان ⦉ {win_name} ⦊ على كلان ⦉ {loser_name} ⦊ وتأهله للدور القادم.\n\n🔗 رابط البطولة: {post_link}"
+                        bot.send_message(tour.channel_id, final_msg)
+                        bot.reply_to(message, f"✅ تم تسجيل فوز {win_name} في بطولة {tour.channel_id}")
+                        
+                        if len(tour.winners) == len(tour.matches): advance(tour)
+                        return
 
 def advance(tour):
     tour.clans = list(tour.winners)
     tour.stage = len(tour.clans)
     tour.winners, tour.ref_assignments, tour.klisha_sent = [], {}, False
-    bot.send_message(REF_GROUP_ID, f"🔄 تأهل الكلانات لدور {tour.stage}. جاري توليد القرعة...")
+    bot.send_message(REF_GROUP_ID, f"🔄 تأهل الكلانات لدور {tour.stage} في {tour.channel_id}. جاري توليد القرعة...")
     start_draw_phase(tour)
 
-print("🚀 البوت يعمل الآن بالكليشة الجديدة ونظام الوقت الذكي...")
+print("🚀 البوت يعمل الآن بنظام النتائج المتعدد والمرن...")
 bot.polling(none_stop=True)

@@ -5,9 +5,10 @@ import time
 import io
 from PIL import Image, ImageDraw, ImageFont
 
-# --- الإعدادات الأساسية ---
+# --- الإعدادات الأساسية المعدلة ---
 TOKEN = '8256105127:AAGRs0n6bGNJ74jXttJnh2Se0AnaW8kworQ'
-OWNER_USERNAME = 'levil_8'
+# إضافة المعرفات المطلوبة في قائمة الأونر
+OWNERS = ['levil_8', 'Q_12_T', 'h896556'] 
 REF_GROUP_ID = -1003875646314      
 
 bot = telebot.TeleBot(TOKEN)
@@ -89,7 +90,10 @@ def get_reg_text(tour):
 @bot.message_handler(func=lambda m: m.chat.type == 'private' and "بطوله" in m.text)
 def start_tour(message):
     global last_active_channel
-    if message.from_user.username and message.from_user.username.lower() != OWNER_USERNAME.lower(): return
+    # التحقق من أن المستخدم ضمن قائمة الأونر
+    if message.from_user.username and message.from_user.username.lower() not in [u.lower() for u in OWNERS]: 
+        return
+    
     parts = message.text.split()
     channel_id = parts[1] if len(parts) > 1 else "@botolaaatt"
     if not channel_id.startswith('@') and not str(channel_id).startswith('-100'): channel_id = f"@{channel_id}"
@@ -173,13 +177,11 @@ def post_final_draw(tour):
 
     full_img = create_full_tournament_image(tour.matches, tour.ref_assignments, stage_name)
     msg = bot.send_photo(tour.channel_id, full_img, caption=combined_msg)
-    tour.draw_msg_id = msg.message_id # تخزين معرف رسالة القرعة للتحقق من النتائج
+    tour.draw_msg_id = msg.message_id 
 
 @bot.message_handler(func=lambda m: m.chat.type == 'private' and "WIN" in m.text.upper())
 def handle_win(message):
-    # استخراج اسم الكلان (كلمة مكونة من حروف وأرقام بعد أو قبل كلمة WIN)
     match_name = re.search(r"([A-Z0-9]{2,8})", message.text.upper().replace("WIN", "").strip())
-    # استخراج معرف الرسالة من الرابط الموجود في النص
     match_link = re.search(r"/(\d+)$", message.text.strip())
     
     if not match_name or not match_link: return
@@ -188,10 +190,8 @@ def handle_win(message):
     msg_id_from_link = int(match_link.group(1))
 
     for tour in active_tournaments.values():
-        # التأكد أن النتيجة مرسلة لبطولة نشطة وبناءً على رابط قرعة صحيح
         if tour.active and (tour.draw_msg_id == msg_id_from_link):
             for i, m in enumerate(tour.matches):
-                # التحقق أن الكلان الفائز موجود في المواجهة وأن المرسل هو الحكم المحجوز له
                 if win_name in [c.upper() for c in m] and tour.ref_assignments.get(i+1) == message.from_user.username:
                     if win_name not in tour.winners:
                         loser_name = m[0] if m[1].upper() == win_name else m[1]
@@ -214,5 +214,5 @@ def advance(tour):
     bot.send_message(REF_GROUP_ID, f"🔄 تأهل الكلانات لدور {tour.stage} في {tour.channel_id}. جاري توليد القرعة...")
     start_draw_phase(tour)
 
-print("🚀 البوت يعمل الآن بنظام النتائج المتعدد والمرن...")
+print("🚀 البوت يعمل الآن بنظام الملاك المتعددين والنتائج المرنة...")
 bot.polling(none_stop=True)

@@ -1,2 +1,2 @@
-pyTelegramBotAPI
-Pillow
+telethon
+pillow

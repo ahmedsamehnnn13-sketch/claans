@@ -1,2 +1,5 @@
-python-telegram-bot
-Pillow
+pyrogram
+tgcrypto
+pillow
+arabic-reshaper
+python-bidi
